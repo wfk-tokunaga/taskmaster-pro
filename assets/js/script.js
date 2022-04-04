@@ -13,6 +13,7 @@ var createTask = function (taskText, taskDate, taskList) {
   // append span and p element to parent li
   taskLi.append(taskSpan, taskP);
 
+  auditTask(taskLi);
 
   // append to ul list on the page
   $("#list-" + taskList).append(taskLi);
@@ -44,6 +45,22 @@ var loadTasks = function () {
 var saveTasks = function () {
   localStorage.setItem("tasks", JSON.stringify(tasks));
 };
+
+// Runs every time we make or edit the date of a task
+// Needs to clear any previous classes
+var auditTask = function (taskEl) {
+  var taskDate = taskEl.find("span").text().trim();
+  var time = moment(taskDate, "L").set("hour", 17);
+  // remove any old classes from element
+  $(taskEl).removeClass("list-group-item-warning list-group-item-danger");
+  // apply new class if task is near/over due date
+  if (moment().isAfter(time)) {
+    $(taskEl).addClass("list-group-item-danger");
+  } else if (Math.abs(moment().diff(time, "days")) <= 2) {
+    $(taskEl).addClass("list-group-item-warning");
+  }
+
+}
 
 // Adding event listener
 $(".list-group").on("click", "p", function () {
@@ -87,6 +104,7 @@ $(".list-group").on("blur", "textarea", function () {
 });
 
 $(".list-group").on("click", "span", function () {
+  // $(this).datepicker();
   var date = $(this).text().trim();
 
   var dateInput = $("<input>")
@@ -95,38 +113,44 @@ $(".list-group").on("click", "span", function () {
     .val(date);
 
   $(this).replaceWith(dateInput);
+
+  dateInput.datepicker({
+    minDate: 1,
+    onClose: function () {
+      $(this).trigger("change"); // Woah, we can trigger events 
+    }
+  });
+
   dateInput.trigger("focus");
-  console.log(date);
 });
 
-$(".list-group").on("blur", "input[type='text']", function () {
+$(".list-group").on("change", "input[type='text']", function () {
   // get the textarea's current value/text
-  var date = $(this)
-    .val()
+  var date = $(this).val()
     .trim();
 
   // get the parent ul's id attribute
-  var status = $(this)
-    .closest(".list-group")
-    .attr("id")
-    .replace("list-", "");
+  var status = $(this).closest(".list-group").attr("id").replace("list-", "");
 
   // get the task's position in the list of other li elements
   var index = $(this)
     .closest(".list-group-item")
     .index();
 
-  console.log(`${date}, ${status}, ${index}`);
+  // console.log(`${date}, ${status}, ${index}`);
   tasks[status][index].date = date;
   saveTasks();
 
   // convert input back into p element
   // Create new p elem with right class and text content
-  var dateSpan = $("<span>")
+  var taskSpan = $("<span>")
     .addClass("badge badge-primary badge-pill")
     .text(date);
   // replace the old elem with the new one
-  $(this).replaceWith(dateSpan);
+  $(this).replaceWith(taskSpan);
+
+  // Goin up the DOM tree so we can get the whole list-group-item el
+  auditTask($(taskSpan).closest(".list-group-item"));
 });
 
 // modal was triggered
@@ -232,6 +256,11 @@ $("#trash").droppable({
     console.log("out");
   }
 });
+
+$("#modalDueDate").datepicker({
+  minDate: 1,
+});
+
 
 // load tasks for the first time
 loadTasks();
